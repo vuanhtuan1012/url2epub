@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 22:09:14
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-04 23:27:51
+# @Last Modified time: 2021-02-05 10:22:55
 
 from scrapy.crawler import CrawlerProcess
 
@@ -11,6 +11,7 @@ class U2eProcess(CrawlerProcess):
     """docstring for U2eProcess"""
     def __init__(self, **kwargs):
         user_agent = kwargs.get("user_agent", None)
+        log_enable = kwargs.get("debug", False)
         if user_agent is None:
             # latest Chrome browser on Windows
             user_agent = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -18,6 +19,6 @@ class U2eProcess(CrawlerProcess):
                           "Chrome/88.0.4324.146 Safari/537.36")
         settings = {
             "USER_AGENT": user_agent,
-            "LOG_ENABLED": False,
+            "LOG_ENABLED": log_enable,
         }
         super().__init__(settings)
