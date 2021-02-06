@@ -2,13 +2,14 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 20:18:19
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-05 17:05:43
+# @Last Modified time: 2021-02-06 18:26:57
 
 import scrapy
 from scrapy.spiders import CrawlSpider
 from configs import truyenfull as config
 from TLib import TLib
 import re
+from time import time
 
 
 class TruyenFull(CrawlSpider):
@@ -26,7 +27,7 @@ class TruyenFull(CrawlSpider):
         # get epub config
         if "epub_conf" in kwargs:
             conf = kwargs.pop("epub_conf")
-            epub_conf = {k: v for k, v in conf.items() if v}
+            epub_conf = {k: v.strip() for k, v in conf.items() if v.strip()}
         else:
             epub_conf = {"language": "vi"}
         # get crawl config
@@ -36,10 +37,15 @@ class TruyenFull(CrawlSpider):
             crawl_conf = {"clean_dir": True}
         crawl_conf["clean_dir"] = crawl_conf.get("clean_dir", True)
         # get logging
-        if "disabled_logging" in kwargs:
-            disabled_logging = kwargs.pop("disabled_logging")
+        if "disabled_log" in kwargs:
+            disabled_log = kwargs.pop("disabled_log")
         else:
-            disabled_logging = False
+            disabled_log = False
+        # get debug
+        if "debug" in kwargs:
+            debug = kwargs.pop("debug")
+        else:
+            debug = False
         # get output_dir
         tlib = TLib()
         if "output_dir" in kwargs:
@@ -49,15 +55,17 @@ class TruyenFull(CrawlSpider):
             tlib.mkdir(output_dir)
 
         super().__init__(*args, **kwargs)
+        self.tlib = tlib
         self.epub_conf = epub_conf
         self.crawl_conf = crawl_conf
+        self.debug = debug
         self.url = url
         self.output_dir = output_dir
+        self.start = time()
 
         logger = tlib.setLogger("url2epub")
-        logger.disabled = disabled_logging
+        logger.disabled = disabled_log
         self.ulogger = logger
-        self.tlib = tlib
 
     def start_requests(self):
         """Verify url before parsing
@@ -70,19 +78,27 @@ class TruyenFull(CrawlSpider):
         logger.info("[%s] Crawl url: %s" % (logger.name, self.url))
         logger.info("[%s] -- clean dir: %s" %
                     (logger.name, self.crawl_conf["clean_dir"]))
+
         # clean output directory
-        cleaned = tlib.cleanDir(self.output_dir,
-                                self.crawl_conf["clean_dir"], logger)
-        if not cleaned:
+        error, msg = tlib.cleanDir(self.output_dir,
+                                   self.crawl_conf["clean_dir"])
+        if error:
+            logger.error("[%s] %s" % (logger.name, msg))
+            if logger.disabled:
+                print("[ERROR]: %s" % msg)
             return
+
+        # verify input url
+        error, msg = tlib.isValidUrl(self.url, self.allowed_domains)
+        if error:
+            logger.error("[%s] %s" % (logger.name, msg))
+            if logger.disabled:
+                print("[ERROR] %s" % msg)
+            return
+
         # put stylesheet file to output directory
         tlib.putStyle2Dir(self.output_dir)
-        # verify input url
-        if tlib.isValidUrl(self.url, self.allowed_domains):
-            yield scrapy.Request(url=self.url, callback=self.parse)
-        else:
-            logger.info("[%s] INVALID URL. ALLOWED DOMAINS: %s" %
-                        (logger.name, ",".join(self.allowed_domains)))
+        yield scrapy.Request(url=self.url, callback=self.parse)
 
     def parse(self, response):
         """Parse input url
@@ -91,6 +107,7 @@ class TruyenFull(CrawlSpider):
             response (TYPE): scrapy http response
         """
         logger = self.ulogger
+        tlib = self.tlib
 
         # set metadata
         conf = self.epub_conf
@@ -101,7 +118,7 @@ class TruyenFull(CrawlSpider):
             "desc": conf.get("desc", metadata["desc"]),
             "source": conf.get("source", metadata["source"]),
             "language": conf.get("language", "vi"),
-            "publisher": "TLab"
+            "publisher": conf.get("publisher", "TLab")
         }
         self.epub_conf = epub_conf
         logger.info("[%s] Getting story: %s" %
@@ -120,6 +137,7 @@ class TruyenFull(CrawlSpider):
         conf["first_chapter_url"] = chapter_urls[0]
         conf["total_chapters"] = len(chapter_urls)
         self.crawl_conf = conf
+        last_page_url = response.url
         page_urls = response.css(config.SELECTORS["page_urls"]).getall()
         if page_urls:
             i = -1
@@ -127,9 +145,8 @@ class TruyenFull(CrawlSpider):
             while "javascript" in last_page_url:
                 i -= 1
                 last_page_url = page_urls[i]
-        else:
-            last_page_url = response.url
-        yield scrapy.Request(last_page_url, callback=self.getTotalChapters)
+        yield scrapy.Request(last_page_url, dont_filter=True,
+                             callback=self.getTotalChapters)
 
     def getMetadata(self, response) -> dict:
         """Get metadata of a story
@@ -192,10 +209,12 @@ class TruyenFull(CrawlSpider):
         # show logs
         logger.info("[%s] -- total chapters: %s" %
                     (logger.name, conf["total_chapters"]))
-        logger.info("[%s] -- start chapter: %s" %
-                    (logger.name, conf["start_chapter"]))
-        logger.info("[%s] -- end chapter: %s" %
-                    (logger.name, conf["end_chapter"]))
+        if conf["start_chapter"] != 1:
+            logger.info("[%s] -- start chapter: %s" %
+                        (logger.name, conf["start_chapter"]))
+        if conf["end_chapter"] != conf["total_chapters"]:
+            logger.info("[%s] -- end chapter: %s" %
+                        (logger.name, conf["end_chapter"]))
         # create epub metadata file
         self.epub_conf["start_chapter"] = conf["start_chapter"]
         self.epub_conf["end_chapter"] = conf["end_chapter"]
@@ -242,27 +261,41 @@ class TruyenFull(CrawlSpider):
                 "total_chapters": conf["total_chapters"],
                 "current_chapter": conf["current_chapter"],
                 "output_dir": self.output_dir,
+                "language": self.epub_conf["language"]
             }
             tlib.genHtmlFile(title, content, html_conf)
             logger.info("[%s] crawled chapter %s/%s: %s" %
                         (logger.name, conf["current_chapter"],
                          conf["end_chapter"], title))
-            if logger.disabled:
+            if logger.disabled and not self.debug:
                 tlib.printProgressBar(conf["current_chapter"],
                                       conf["end_chapter"],
                                       prefix="Crawling progress:")
-        # get url of next chapter
+        # crawl next chapter
         next_chapter_url = response.css(
                            config.SELECTORS["next_chapter_urls"]).getall()[0]
-        epub_conf = {
-            "output_dir": self.output_dir,
-            "clean_dir": conf["clean_dir"]
-        }
-        if "javascript" in next_chapter_url:
-            tlib.genEpubFile(epub_conf, logger)
-            return
-        if conf["current_chapter"] < conf["end_chapter"]:
+        continuable = not ("javascript" in next_chapter_url) and \
+            (conf["current_chapter"] < conf["end_chapter"])
+        if continuable:
             yield scrapy.Request(next_chapter_url,
                                  callback=self.parseChapter)
         else:
-            tlib.genEpubFile(epub_conf, logger)
+            # generate epub file
+            error, epub_file = tlib.genEpubFile(self.output_dir)
+            if error:
+                msg = epub_file
+                logger.error("[%s] %s" % (logger.name, msg))
+                if logger.disabled:
+                    print("[ERROR] %s" % msg)
+                return
+
+            if conf["clean_dir"]:
+                tlib.cleanDir(self.output_dir, conf["clean_dir"])
+            end = time()
+            logger.info("[%s] Crawling duration: %s" %
+                        (logger.name, tlib.readSeconds(end - self.start)))
+            msg = "The story %s is saved at %s" % \
+                  (self.epub_conf["title"], epub_file)
+            logger.info("[%s] %s" % (logger.name, msg))
+            if logger.disabled:
+                print(msg)

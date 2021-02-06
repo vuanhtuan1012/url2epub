@@ -2,12 +2,11 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 21:00:44
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-05 17:04:35
+# @Last Modified time: 2021-02-06 12:51:23
 
 import logging
 from datetime import datetime
 import os
-import constants
 import re
 import shutil
 import json
@@ -18,16 +17,28 @@ from ebooklib import epub
 
 class TLib(object):
     """docstring for TLib"""
-    CLEAN_DIR_EXCEPTION = [".jpg", ".png", ".epub"]
-    HTML_HEADER = ("<html xmlns=\"http://www.w3.org/1999/xhtml\">\n"
-                   "<head>\n\t<title>{title}</title>\n\t"
-                   "<meta charset=\"utf-8\">\n\t"
-                   "<link href=\"stylesheet.css\" type=\"text/css\""
-                   " rel=\"stylesheet\">\n"
-                   "</head>\n")
-    HTML_BODY = ("<body>\n"
-                 "<h2 class=\"title\">{title}</h2>\n{content}\n"
-                 "</body>\n</html>")
+    __HEADER = ("<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 "
+                "Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/"
+                "xhtml1-strict.dtd\">\n"
+                "<html xmlns=\"http://www.w3.org/1999/xhtml\" "
+                "xml:lang=\"{lang}\" lang=\"{lang}\">\n"
+                "<head>\n\t<title>{title}</title>\n\t"
+                "<link href=\"stylesheet.css\" type=\"text/css\""
+                " rel=\"stylesheet\" media=\"all\"/>\n</head>\n")
+    __BODY = ("<body>\n"
+              "<h2 class=\"title\">{title}</h2>\n{content}\n"
+              "</body>\n</html>")
+    KEPT_TAGS = ['b', 'strong', 'em', 'p', 'i', 'sup']
+    __FILE_EXT = ".e2u"
+    __ERROR_CODES = {
+        10: "Could not find metadata file",
+        11: "Could not find stylesheet file",
+        12: "Book title is empty",
+        13: "Book author is empty",
+        20: "Invalid url. %s",
+        21: "Not allowed domain. Allowed domain(s): %s",
+        30: "Directory doesn't exists. %s"
+    }
 
     def __init__(self):
         super().__init__()
@@ -92,9 +103,9 @@ class TLib(object):
             str: clean text
         """
         # remove tags except kept tags
-        close_tags = ["/" + tag for tag in constants.HTML_KEPT_TAGS]
+        close_tags = ["/" + tag for tag in self.KEPT_TAGS]
         kept_tags_pattern = r"<(?!(?:{})).*?>".format(
-                            "|".join(constants.HTML_KEPT_TAGS + close_tags))
+                            "|".join(self.KEPT_TAGS + close_tags))
         clean_text = re.sub(kept_tags_pattern, r"", content)
         # correct br tags
         clean_text = re.sub(r"<br.*?>", "<br/>", clean_text)
@@ -152,7 +163,7 @@ class TLib(object):
         )
         return False if pattern.match(url) is None else True
 
-    def isValidUrl(self, url: str, allowed_domains: list) -> bool:
+    def isValidUrl(self, url: str, allowed_domains: list) -> tuple:
         """Check whether an url is in allowed domains
 
         Args:
@@ -160,36 +171,43 @@ class TLib(object):
             allowed_domains (list): list of allowed domains
 
         Returns:
-            bool: Description
+            bool: error code, matches or message
         """
         if not self.isUrl(url):
-            return False
+            return 20, TLib.__ERROR_CODES[20] % url
         domains = [d.replace(".", r"\.") for d in allowed_domains]
         pattern = r"%s" % "|".join(domains)
-        return True if re.search(pattern, url) else False
+        matches = re.search(pattern, url)
+        if not matches:
+            return 21, TLib.__ERROR_CODES[21] % ", ".join(allowed_domains)
+        return 0, matches
 
-    def cleanDir(self, output_dir: str, clean: bool, logger: logging) -> bool:
-        """Clean output directory
+    def cleanDir(self, output_dir: str, clean: bool) -> tuple:
+        """Clean url2epub files in the output directory
 
         Args:
             output_dir (str): directory to clean
             clean (bool): True to clean, False to not clean
-            logger (logging): Description
 
         Returns:
-            bool: False if the directory does not exist, otherwise True
+            tuple: error code, message or None
         """
         if not os.path.isdir(output_dir):
-            logger.info("[%s] ERROR: Output directory %s does not exist" %
-                        (logger.name, output_dir))
-            return False
+            return 30, TLib.__ERROR_CODES[30] % output_dir
         if not clean:
-            return True
-        files = [file for file in os.listdir(output_dir)]
+            return 0, None
+        # remove url2epub files
+        files = [file for file in os.listdir(output_dir)
+                 if file.endswith(TLib.__FILE_EXT)]
         for file in files:
-            if os.path.splitext(file)[1] not in self.CLEAN_DIR_EXCEPTION:
-                os.remove(os.path.join(output_dir, file))
-        return True
+            os.remove(os.path.join(output_dir, file))
+        # remove metadata & stylesheet files
+        files = ["metadata.json", "stylesheet.css"]
+        for file in files:
+            filepath = os.path.join(output_dir, file)
+            if os.path.isfile(filepath):
+                os.remove(filepath)
+        return 0, None
 
     def putStyle2Dir(self, output_dir: str):
         """Coppy stylesheet file to ouput directory
@@ -290,12 +308,12 @@ class TLib(object):
         current_chapter = str(conf["current_chapter"])
         idx = "0" * (len(total_chapters) - len(current_chapter)) \
               + current_chapter
-        filename = "chapter_%s.html" % idx
+        filename = "chapter_%s%s" % (idx, TLib.__FILE_EXT)
         file_location = os.path.join(conf["output_dir"], filename)
         # set header & body
-        header = self.HTML_HEADER
-        header = header.format(title=title)
-        body = self.HTML_BODY
+        header = TLib.__HEADER
+        header = header.format(title=title, lang=conf["language"])
+        body = TLib.__BODY
         body = body.format(title=title, content=content)
         # write to file
         with open(file_location, "w+", encoding="utf-8") as fp:
@@ -328,7 +346,7 @@ class TLib(object):
         prefix = kwargs.get("prefix", "Progress:")
         suffix = kwargs.get("suffix", "Completed")
         decimals = kwargs.get("decimals", 2)
-        length = kwargs.get("length", 50)
+        length = kwargs.get("length", 30)
         fill = kwargs.get("fill", "█")
 
         # calculate for bar display
@@ -345,27 +363,40 @@ class TLib(object):
             print("\r%s |%s| %s%% (%d/%d) %s" %
                   (prefix, bar, percent, i, n, suffix))
 
-    def genEpubFile(self, conf: dict, logger: logging):
+    def genEpubFile(self, output_dir: str) -> tuple:
         """Create epub from html files
 
         Args:
-            conf (dict): configuration
-                - output_dir (str): directory containing html files
-                - clean_dir (bool): True to clean directory after generating
-            logger (logging): Description
+            output_dir (str): directory containing html files
+
+        Returns:
+            tuple: error code, epub_filepath or message
         """
-        book = epub.EpubBook()
-        # get metadata
-        filepath = os.path.join(conf["output_dir"], "metadata.json")
-        with open(filepath, "r", encoding="utf-8") as fp:
+        # verification
+        metadata_file = os.path.join(output_dir, "metadata.json")
+        stylesheet_file = os.path.join(output_dir, "stylesheet.css")
+        if not os.path.isfile(metadata_file):
+            return 10, TLib.__ERROR_CODES[10]
+        if not os.path.isfile(stylesheet_file):
+            return 11, TLib.__ERROR_CODES[11]
+
+        with open(metadata_file, "r", encoding="utf-8") as fp:
             metadata = json.load(fp)
-        if not metadata.get("language", None):
-            metadata["language"] = "vi"
-        if not metadata.get("publisher", None):
-            metadata["publisher"] = "TLab"
+        title = metadata.get("title", None)
+        author = metadata.get("author", None)
+        if not title:
+            return 12, TLib.__ERROR_CODES[12]
+        if not author:
+            return 13, TLib.__ERROR_CODES[13]
+
+        # set default values
+        metadata["language"] = metadata.get("language", "vi")
+        metadata["publisher"] = metadata.get("publisher", "TLab")
         if not metadata.get("source", None):
             metadata["source"] = "truyenfull.vn"
-        # set book metadata
+
+        # create book
+        book = epub.EpubBook()
         book.set_identifier("tlab_%s" % datetime.now()
                             .strftime("%Y%m%d%H%I%S"))
         book.set_language(metadata["language"])
@@ -378,47 +409,97 @@ class TLib(object):
         book.add_metadata("DC", "source", metadata["source"])
         book.add_metadata("DC", "publisher", metadata["publisher"])
         book.add_metadata("DC", "date", datetime.now().strftime("%Y-%m-%d"))
+
         # add book style
-        filepath = os.path.join(conf["output_dir"], "stylesheet.css")
-        with open(filepath, "r") as fp:
+        with open(stylesheet_file, "r") as fp:
             style = fp.read()
         chapter_style = epub.EpubItem(uid="chapter_style",
                                       file_name="stylesheet.css",
                                       media_type="text/css",
                                       content=style)
         book.add_item(chapter_style)
-        # add chapters
+
+        # add book chapters
         toc = list()
         spine = list()
-        files = [file for file in os.listdir(conf["output_dir"])
-                 if file.endswith("html")]
+        files = [file for file in os.listdir(output_dir)
+                 if file.endswith(TLib.__FILE_EXT)]
+        files.sort()
         for file in files:
-            filepath = os.path.join(conf["output_dir"], file)
+            filepath = os.path.join(output_dir, file)
             with open(filepath, "r", encoding="utf-8") as fp:
                 content = fp.read()
             pattern = re.compile("<h2.*?>(.*)</h2>")
             title = pattern.search(content).group(1)
             # create chapter & add to book
-            chapter = epub.EpubHtml(file_name=file, title=title,
+            filename = "%s.xhtml" % os.path.splitext(file)[0]
+            chapter = epub.EpubHtml(file_name=filename, title=title,
                                     lang=metadata["language"])
             chapter.content = content
             chapter.add_item(chapter_style)
             book.add_item(chapter)
             spine.append(chapter)
-            toc.append(epub.Link(file, title, os.path.splitext(file)[0]))
+            toc.append(epub.Link(filename, title, os.path.splitext(file)[0]))
+
         # create table of contents
         book.toc = tuple(toc)
         book.add_item(epub.EpubNcx())
         book.add_item(epub.EpubNav())
         spine.append("nav")
         book.spine = spine
+
         # gen epub file
         filename = "%s - %s.epub" % (metadata["author"], metadata["title"])
-        filepath = os.path.join(conf["output_dir"], filename)
-        epub.write_epub(filepath, book, {})
-        logger.info("[%s] The story %s is saved at %s" %
-                    (logger.name, metadata["title"], filepath))
-        self.cleanDir(conf["output_dir"], conf["clean_dir"], logger)
+        epub_file = os.path.join(output_dir, filename)
+        epub.write_epub(epub_file, book, {})
+        return 0, epub_file
 
     def mkdir(self, dirpath: str):
-        os.mkdir(dirpath)
+        if not os.path.isdir(dirpath):
+            os.mkdir(dirpath)
+
+    def readSeconds(self, seconds: float, **kwargs) -> str:
+        """Read seconds into text
+
+        Args:
+            seconds (float): seconds to read
+            **kwargs: keyword arguments
+
+        Returns:
+            str: text of seconds
+        """
+        _UNITS = ["day", "hour", "minute", "second"]
+        _CONVERSION = {
+            "day": 60*60*24,
+            "hour": 60*60,
+            "minute": 60,
+            "second": 1
+        }
+
+        # set default value
+        decimals = kwargs.get("decimals", 2)
+        seconds = round(seconds, decimals)
+
+        v = 0
+        i = -1
+        while not v:
+            i += 1
+            if i == len(_UNITS):
+                return "%s seconds" % seconds
+            unit = _UNITS[i]
+            v = seconds // _CONVERSION[unit]
+        res = ""
+        for unit in _UNITS[i:]:
+            v = seconds // _CONVERSION[unit]
+            seconds = seconds % _CONVERSION[unit]
+            v = int(v)
+            if unit == "second":
+                v = v + seconds
+                v = round(v, decimals)
+            if not v:
+                continue
+            if v != 1:
+                res += "%s %ss " % (v, unit)
+            else:
+                res += "%s %s " % (v, unit)
+        return res.strip()
