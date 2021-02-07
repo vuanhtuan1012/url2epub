@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 21:00:44
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-06 12:51:23
+# @Last Modified time: 2021-02-07 10:33:17
 
 import logging
 from datetime import datetime
@@ -13,6 +13,7 @@ import json
 import sys
 from time import sleep
 from ebooklib import epub
+import tpub
 
 
 class TLib(object):
@@ -260,9 +261,9 @@ class TLib(object):
             str: Description
         """
         # get default values
-        title = kwargs.get("title", None)
-        removal_patterns = kwargs.get("removal_patterns", None)
-        removal_symbols = kwargs.get("removal_symbols", None)
+        title = kwargs.get("title")
+        removal_patterns = kwargs.get("removal_patterns")
+        removal_symbols = kwargs.get("removal_symbols")
 
         # remove redundant paragraphs
         first_paragraph = re.search(r"<p>.*?</p>", content).group()
@@ -382,8 +383,8 @@ class TLib(object):
 
         with open(metadata_file, "r", encoding="utf-8") as fp:
             metadata = json.load(fp)
-        title = metadata.get("title", None)
-        author = metadata.get("author", None)
+        title = metadata.get("title")
+        author = metadata.get("author")
         if not title:
             return 12, TLib.__ERROR_CODES[12]
         if not author:
@@ -392,7 +393,7 @@ class TLib(object):
         # set default values
         metadata["language"] = metadata.get("language", "vi")
         metadata["publisher"] = metadata.get("publisher", "TLab")
-        if not metadata.get("source", None):
+        if not metadata.get("source"):
             metadata["source"] = "truyenfull.vn"
 
         # create book
@@ -410,6 +411,13 @@ class TLib(object):
         book.add_metadata("DC", "publisher", metadata["publisher"])
         book.add_metadata("DC", "date", datetime.now().strftime("%Y-%m-%d"))
 
+        # add book cover
+        spine = list()
+        if metadata.get("cover"):
+            filename = "cover%s" % os.path.splitext(metadata["cover"])[1]
+            book.set_cover(filename, open(metadata["cover"], "rb").read())
+            spine.append("cover")
+
         # add book style
         with open(stylesheet_file, "r") as fp:
             style = fp.read()
@@ -421,7 +429,7 @@ class TLib(object):
 
         # add book chapters
         toc = list()
-        spine = list()
+        spine.append("nav")
         files = [file for file in os.listdir(output_dir)
                  if file.endswith(TLib.__FILE_EXT)]
         files.sort()
@@ -445,7 +453,6 @@ class TLib(object):
         book.toc = tuple(toc)
         book.add_item(epub.EpubNcx())
         book.add_item(epub.EpubNav())
-        spine.append("nav")
         book.spine = spine
 
         # gen epub file

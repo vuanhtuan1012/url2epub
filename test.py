@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 20:37:00
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-06 20:11:11
+# @Last Modified time: 2021-02-07 13:24:47
 
 from U2eProcess import U2eProcess
 from spiders.TruyenFull import TruyenFull
@@ -10,6 +10,7 @@ import argparse
 
 
 if __name__ == '__main__':
+    # get arguments of debug & log
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--debug', required=False)
     parser.add_argument('-l', '--log', required=False)
@@ -22,25 +23,30 @@ if __name__ == '__main__':
     log = False if log.lower() == "false" else True
     disabled_log = not log
 
+    # set metadata for book
     epub_conf = {
         # "title": "",
         # "author": "",
         # "desc": "",
         # "source": "",
-        # "publisher": "NXB Văn Học"
+        # "publisher": "NXB Thời Đại",
+        "cover": "url2epub/cover_tttd.jpg"
     }
+    # configuration to crawl
     crawl_conf = {
-        "start_chapter": 764,
-        # "end_chapter": 5,
+        "start_chapter": 770,
+        # "end_chapter": 775,
         # "clean_dir": False
     }
-    output_dir = "temps"
-    url = "https://truyenfull.vn/dai-chua-te"
+    output_dir = "/mnt/c/Users/anh-t/Desktop"
+    url = "https://truyenfull.vn/dai-chua-te/"
 
     process = U2eProcess(debug=debug)
-    process.crawl(TruyenFull, url, debug=debug,
-                  disabled_log=disabled_log,
-                  epub_conf=epub_conf, crawl_conf=crawl_conf,
-                  # output_dir=output_dir
+    process.crawl(TruyenFull, url,
+                  output_dir=output_dir,  # optional
+                  debug=debug,  # optional
+                  disabled_log=disabled_log,  # optional
+                  epub_conf=epub_conf,  # optional
+                  crawl_conf=crawl_conf,  # optional
                   )
     process.start()

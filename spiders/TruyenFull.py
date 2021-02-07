@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 20:18:19
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-06 18:26:57
+# @Last Modified time: 2021-02-07 13:21:11
 
 import scrapy
 from scrapy.spiders import CrawlSpider
@@ -10,6 +10,7 @@ from configs import truyenfull as config
 from TLib import TLib
 import re
 from time import time
+import os
 
 
 class TruyenFull(CrawlSpider):
@@ -83,17 +84,19 @@ class TruyenFull(CrawlSpider):
         error, msg = tlib.cleanDir(self.output_dir,
                                    self.crawl_conf["clean_dir"])
         if error:
+            msg = "[ERROR]: %s" % msg
             logger.error("[%s] %s" % (logger.name, msg))
             if logger.disabled:
-                print("[ERROR]: %s" % msg)
+                print(msg)
             return
 
         # verify input url
         error, msg = tlib.isValidUrl(self.url, self.allowed_domains)
         if error:
+            msg = "[ERROR]: %s" % msg
             logger.error("[%s] %s" % (logger.name, msg))
             if logger.disabled:
-                print("[ERROR] %s" % msg)
+                print(msg)
             return
 
         # put stylesheet file to output directory
@@ -120,6 +123,8 @@ class TruyenFull(CrawlSpider):
             "language": conf.get("language", "vi"),
             "publisher": conf.get("publisher", "TLab")
         }
+        if conf.get("cover"):
+            epub_conf["cover"] = conf["cover"]
         self.epub_conf = epub_conf
         logger.info("[%s] Getting story: %s" %
                     (logger.name, epub_conf["title"]))
@@ -128,9 +133,9 @@ class TruyenFull(CrawlSpider):
 
         # set start, end chapter to crawl
         conf = self.crawl_conf
-        if not conf.get("start_chapter", None):
+        if not conf.get("start_chapter"):
             conf["start_chapter"] = 1
-        if not conf.get("end_chapter", None):
+        if not conf.get("end_chapter"):
             conf["end_chapter"] = -1
         # get total chapters
         chapter_urls = response.css(config.SELECTORS["chapter_urls"]).getall()
@@ -215,13 +220,36 @@ class TruyenFull(CrawlSpider):
         if conf["end_chapter"] != conf["total_chapters"]:
             logger.info("[%s] -- end chapter: %s" %
                         (logger.name, conf["end_chapter"]))
+        # verification
+        if conf["start_chapter"] > conf["end_chapter"]:
+            msg = "[ERROR] start chapter is greater than end chapter"
+            logger.error("[%s] %s" % (logger.name, msg))
+            if logger.disabled:
+                print(msg)
+            return
         # create epub metadata file
         self.epub_conf["start_chapter"] = conf["start_chapter"]
         self.epub_conf["end_chapter"] = conf["end_chapter"]
         tlib.metadata2json(self.epub_conf, self.output_dir)
         # parse chapters
-        yield scrapy.Request(conf["first_chapter_url"],
-                             callback=self.parseChapter)
+        chapter_url = self.getChapterUrl(conf["start_chapter"]) \
+            if conf["start_chapter"] != 1 else conf["first_chapter_url"]
+        yield scrapy.Request(chapter_url, callback=self.parseChapter)
+
+    def getChapterUrl(self, idx: int) -> str:
+        """Get chapter url given chapter index
+
+        Args:
+            idx (int): chapter index
+
+        Returns:
+            str: chapter url
+        """
+        conf = self.crawl_conf
+        idx = 1 if idx < 1 else idx
+        chapter_url = os.path.join(self.url, "chuong-%s" % idx)
+        self.crawl_conf["current_chapter"] = idx - 1
+        return chapter_url
 
     def parseChapter(self, response):
         """Crawl a chapter to html file
@@ -283,10 +311,10 @@ class TruyenFull(CrawlSpider):
             # generate epub file
             error, epub_file = tlib.genEpubFile(self.output_dir)
             if error:
-                msg = epub_file
+                msg = "[ERROR] %s" % epub_file
                 logger.error("[%s] %s" % (logger.name, msg))
                 if logger.disabled:
-                    print("[ERROR] %s" % msg)
+                    print(msg)
                 return
 
             if conf["clean_dir"]:

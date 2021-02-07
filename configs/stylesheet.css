@@ -2,13 +2,13 @@
 * @Author: anh-tuan.vu
 * @Date:   2021-02-04 23:50:05
 * @Last Modified by:   anh-tuan.vu
-* @Last Modified time: 2021-02-06 17:26:03
+* @Last Modified time: 2021-02-04 23:50:20
 */
 
 .has-dropcap:first-letter {
   float: left;
   font-size: 5em;
-  margin: -0.3225em 0.05em -0.3245em 0;
+  margin: -0.45em 0.05em -0.45em 0;
 }
 
 h2.title {
