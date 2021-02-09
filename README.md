@@ -1,27 +1,73 @@
 # url2epub
 
+This is a tool for creating a ebook in epub format from an url.
+
+Supported sites:
+- [vnthuquan.net](https://vnthuquan.net/)
+- [truyenfull.vn](https://truyenfull.vn/)
+
+## Usage
+
+```
+python crawl.py [-h] [-d] [-l] [-o OUTPUT_DIR] [-c COVER] [-p PUBLISHER] [-e END_CHAPTER] url
+```
+
+- `-h`: display help
+- `-d`: enable debug mode. Default: disabled
+- `-l`: disable logging mode. Default: enabled
+- `-o`: path to output directory. Default: `url2epub` inside current directory
+- `-c`: path to the cover of story. Default: empty string
+- `-p`: the name of the publisher of story. Default: empty string
+- `-e`: chapter index to finish crawl. Default: crawl all chapters
+- `url`: the url of story
+
+## Cover
+
+- The longest side of cover image is **at least 500px**.
+- The **ideal aspect ratio** is 1.6
+- The aspect ratio of **kindle Oasis 2** is 1.33
+- Use [calibre](https://calibre-ebook.com/) to keep cover image:
+	- connecte your kindle to computer
+	- open Calibre then import the created ebook (epub file) to it.
+	- select your ebook, then click on **Send to device** in menu.
+	- select format **azw3** to send the ebook to your kindle.
+	- eject device, turn on wifi of your kindle, waiting for cover disappear
+	- reconnect your kindle to PC, and use Calibre to eject it.
+
+> If the cover image does not appear:
+> - Check the size of cover image.
+> - Try to use another format of this image.
+
 ## Resources
 
 - [Epub Validator](https://www.ebookit.com/tools/bp/Bo/eBookIt/epub-validator)
+- [EPUB Validator (beta)](http://validator.idpf.org/)
 - [XHTML Validator](https://validator.w3.org/nu/#file)
-- [Create a Table of Contents with a Navigation Document](https://kdp.amazon.com/en_US/help/topic/G201605710)
 
-## After generating
+## Shell scrapy
 
-Open epub file with Sigil, then
-- Add cover: Tools > Add Cover...
-- Add semantic table of contents:
-	- Right click on file `nav.xhtml` > Add semantics... > Table of Contents.
-    - In file `nav.xhtml` change `<nav epub:type="toc" id="id" role="doc-toc">` to `<nav epub:type="toc" id="toc" role="doc-toc">`.
-- Add TOC & start page: add this snippet code to file `content.opf`, before close tag `</package>`
-```html
-  <guide>
-    <reference type="toc" title="Table of Contents" href="nav.xhtml#toc"/>
-    <reference type="text" title="start" href="chapter_01.xhtml"/>
-  </guide>
+```
+scrapy shell [url]
 ```
 
-These actions will create the file `cover.xhtml` & changement in `nav.xhtml`, `content.opf`.
+1. Display help
+
+```
+shelp()
+```
+
+2. Do a POST request
+
+```
+req = scrapy.FormRequest(url=[new_url], formdata=[your_data])
+fetch(req)
+```
+
+3. Fetch a new url
+
+```
+fetch(new_url)
+```
 
 ## Miscellaneity
 
@@ -45,4 +91,3 @@ I usually use the title page as the Start page. Amazon tells you to use Chapter 
 These "semantics" all create entries in the opf file, the TOC and Start in the "Guide" at the end; the cover image in the "meta' and "manifest".
 
 [Kindle Reviewer 3 says there's no TOC](https://www.mobileread.com/forums/showpost.php?p=3557815&postcount=4)
-
