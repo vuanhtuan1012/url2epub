@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 20:31:18
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-05 14:20:40
+# @Last Modified time: 2021-02-09 14:15:29
 
 SELECTORS = {
     "title": "title::text",
@@ -16,7 +16,7 @@ SELECTORS = {
     "page_urls": "ul.pagination > li > a::attr(href)",
 }
 
-REMOVAL_PATTERNS = [r"[dD]ịch\s+[gG]iả",  r"[nN]hóm\s+[dD]ịch",
-                    r"[eE]dit", r"[bB]eta"]
+REMOVAL_PATTERNS = [r"dịch\s*:",  r"nhóm\s+dịch",
+                    r"edit", r"beta"]
 
-REMOVAL_SYMBOLS = r"[\"\'\-“”*]"
+REMOVAL_SYMBOLS = ["\"", "\'", r"\-", "“", "”"]

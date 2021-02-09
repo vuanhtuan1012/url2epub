@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 20:18:19
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-07 13:21:11
+# @Last Modified time: 2021-02-09 13:15:34
 
 import scrapy
 from scrapy.spiders import CrawlSpider
@@ -49,9 +49,10 @@ class TruyenFull(CrawlSpider):
             debug = False
         # get output_dir
         tlib = TLib()
+        output_dir = None
         if "output_dir" in kwargs:
             output_dir = kwargs.pop("output_dir")
-        else:
+        if not output_dir:
             output_dir = "url2epub"
             tlib.mkdir(output_dir)
 
@@ -123,6 +124,8 @@ class TruyenFull(CrawlSpider):
             "language": conf.get("language", "vi"),
             "publisher": conf.get("publisher", "TLab")
         }
+        if not epub_conf["source"]:
+            epub_conf["source"] = "truyenfull.vn"
         if conf.get("cover"):
             epub_conf["cover"] = conf["cover"]
         self.epub_conf = epub_conf
@@ -135,9 +138,6 @@ class TruyenFull(CrawlSpider):
         conf = self.crawl_conf
         if not conf.get("start_chapter"):
             conf["start_chapter"] = 1
-        if not conf.get("end_chapter"):
-            conf["end_chapter"] = -1
-        # get total chapters
         chapter_urls = response.css(config.SELECTORS["chapter_urls"]).getall()
         conf["first_chapter_url"] = chapter_urls[0]
         conf["total_chapters"] = len(chapter_urls)
@@ -208,7 +208,7 @@ class TruyenFull(CrawlSpider):
                 + len(chapter_urls)
             conf["total_chapters"] = total_chapters
         conf["current_chapter"] = 0
-        conf["end_chapter"] = total_chapters if conf["end_chapter"] == -1 \
+        conf["end_chapter"] = total_chapters if not conf.get("end_chapter") \
             else conf["end_chapter"]
         self.crawl_conf = conf
         # show logs
@@ -282,7 +282,7 @@ class TruyenFull(CrawlSpider):
                 "removal_patterns": config.REMOVAL_PATTERNS,
                 "removal_symbols": config.REMOVAL_SYMBOLS
             }
-            content = tlib.addDropcap(content, **kwargs)
+            content = tlib.addDropCap(content, **kwargs)
 
             # create a html file
             html_conf = {
@@ -296,7 +296,7 @@ class TruyenFull(CrawlSpider):
                         (logger.name, conf["current_chapter"],
                          conf["end_chapter"], title))
             if logger.disabled and not self.debug:
-                tlib.printProgressBar(conf["current_chapter"],
+                tlib.printProgressBar(conf["current_chapter"]+1,
                                       conf["end_chapter"],
                                       prefix="Crawling progress:")
         # crawl next chapter
@@ -317,8 +317,7 @@ class TruyenFull(CrawlSpider):
                     print(msg)
                 return
 
-            if conf["clean_dir"]:
-                tlib.cleanDir(self.output_dir, conf["clean_dir"])
+            tlib.cleanDir(self.output_dir, conf["clean_dir"])
             end = time()
             logger.info("[%s] Crawling duration: %s" %
                         (logger.name, tlib.readSeconds(end - self.start)))

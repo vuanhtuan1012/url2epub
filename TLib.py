@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 21:00:44
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-07 10:33:17
+# @Last Modified time: 2021-02-09 13:15:15
 
 import logging
 from datetime import datetime
@@ -14,6 +14,7 @@ import sys
 from time import sleep
 from ebooklib import epub
 import tpub
+from bs4 import BeautifulSoup
 
 
 class TLib(object):
@@ -29,7 +30,7 @@ class TLib(object):
     __BODY = ("<body>\n"
               "<h2 class=\"title\">{title}</h2>\n{content}\n"
               "</body>\n</html>")
-    KEPT_TAGS = ['b', 'strong', 'em', 'p', 'i', 'sup']
+    KEPT_TAGS = ["b", "strong", "em", "p", "i", "sup", "br"]
     __FILE_EXT = ".e2u"
     __ERROR_CODES = {
         10: "Could not find metadata file",
@@ -103,20 +104,25 @@ class TLib(object):
         Returns:
             str: clean text
         """
-        # remove tags except kept tags
-        close_tags = ["/" + tag for tag in self.KEPT_TAGS]
-        kept_tags_pattern = r"<(?!(?:{})).*?>".format(
-                            "|".join(self.KEPT_TAGS + close_tags))
-        clean_text = re.sub(kept_tags_pattern, r"", content)
-        # correct br tags
-        clean_text = re.sub(r"<br.*?>", "<br/>", clean_text)
-        # remove /br tags if it exists
-        clean_text = re.sub(r"</br>", r"", clean_text)
-        # remove &nbsp;
-        clean_text = re.sub(r"&nbsp;", r" ", clean_text)
+        soup = BeautifulSoup(content, features="lxml")
+        container = soup.find("body")
+        keep = list()
+        added = list()
+        for node in container.descendants:
+            if not node.name and len(node) and node not in added:
+                keep.append(node)
+            if node.name in self.KEPT_TAGS:
+                keep.append(node)
+                if len(node):
+                    added.append(node.text)
+        clean_text = " ".join(map(str, keep))
+        # clean tag attributes
+        for tag in self.KEPT_TAGS:
+            x = r"<%s +.*?>" % tag
+            y = r"<%s>" % tag
+            clean_text = re.sub(x, y, clean_text)
         # remove more than 2 spaces
         clean_text = re.sub(r"\s+", " ", clean_text)
-
         return clean_text.strip()
 
     def br2p(self, content: str) -> str:
@@ -129,19 +135,27 @@ class TLib(object):
             str: converted text
         """
         # remove multiple <br/>
-        converted_text = re.sub(r"(<br/>)+", r"<br/>", content)
+        converted_text = re.sub(r"(<br/>)+", r"<br/>", content,
+                                flags=re.IGNORECASE)
         # converted_text <br/> to <p>
-        converted_text = re.sub(r"<br/>", r"</p>\n<p>", converted_text)
-        # add <p> if needed
-        converted_text = "<p>" + converted_text
-        converted_text += "</p>"
+        converted_text = re.sub(r"<br/>", r"</p>\n<p>", converted_text,
+                                flags=re.IGNORECASE)
         # clean space
-        converted_text = re.sub(r"<p>\s+", r"<p>", converted_text)
+        converted_text = re.sub(r"<p +.*?>\s+", r"<p>", converted_text)
         converted_text = re.sub(r"\s+</p>", r"</p>", converted_text)
-        # clear empty paragraphs
-        converted_text = re.sub(r"<p></p>", r"", converted_text)
-
-        return converted_text.strip()
+        # prettify text
+        converted_text = converted_text.strip()
+        soup = BeautifulSoup(converted_text, features="lxml")
+        soup.html.unwrap()
+        soup.body.unwrap()
+        # clear empty tags
+        for tag in soup.find_all():
+            if len(tag.get_text(strip=True)) == 0:
+                tag.extract()
+        converted_text = soup.prettify().strip()
+        converted_text = re.sub(r"\n ", "", converted_text)
+        converted_text = re.sub(r"\n</", "</", converted_text)
+        return converted_text
 
     def isUrl(self, url: str) -> bool:
         """Check whether a string is an url or not
@@ -240,13 +254,17 @@ class TLib(object):
         Returns:
             str: clean text
         """
+        # replace br, div, p by space
+        clean_text = re.sub(r"<br.*?>", " ", content, flags=re.IGNORECASE)
+        clean_text = re.sub(r"<div.*?>", " ", clean_text, flags=re.IGNORECASE)
+        clean_text = re.sub(r"<p.*?>", " ", clean_text, flags=re.IGNORECASE)
         # remove all tags
-        clean_text = re.sub(r"<.*?>", "", content)
+        clean_text = re.sub(r"<.*?>", "", clean_text)
         # correct spaces
-        clean_text = re.sub(r"\s+", " ", clean_text)
+        clean_text = re.sub(r" +", " ", clean_text)
         return clean_text.strip()
 
-    def addDropcap(self, content: str, **kwargs) -> str:
+    def addDropCap(self, content: str, **kwargs) -> str:
         """Add style has-dropcap to a text
 
         Args:
@@ -266,32 +284,44 @@ class TLib(object):
         removal_symbols = kwargs.get("removal_symbols")
 
         # remove redundant paragraphs
-        first_paragraph = re.search(r"<p>.*?</p>", content).group()
+        soup = BeautifulSoup(content, features="lxml")
+        soup.html.unwrap()
+        soup.body.unwrap()
         if removal_patterns is not None:
             pattern = r"%s" % "|".join(removal_patterns)
-            while re.search(pattern, first_paragraph):
-                content = content[len(first_paragraph):].strip()
-                first_paragraph = re.search(r"<p>.*?</p>", content).group()
+            while True:
+                first_tag = soup.find()
+                if re.search(pattern, first_tag.text, flags=re.IGNORECASE):
+                    first_tag.extract()
+                else:
+                    break
 
         # remove redundant title
         if title is not None:
+            first_tag = soup.find()
             pattern = r"[^a-zA-Z0-9]"
-            cleaned_paragraph = self.removeTags(first_paragraph)
+            cleaned_paragraph = self.removeTags(first_tag.text)
             asciied_paragraph = re.sub(pattern, "", cleaned_paragraph)
             asciied_title = re.sub(pattern, "", title)
             if asciied_paragraph in asciied_title:
-                content = content[len(first_paragraph):].strip()
-                first_paragraph = re.search(r"<p>.*?</p>", content).group()
+                first_tag.extract()
+                first_tag = soup.find()
 
-        # remove all quotation mark in first_paragraph
-        loc = len(first_paragraph)
-        if removal_symbols is not None:
-            first_paragraph = re.sub(removal_symbols, "", first_paragraph)
-            first_paragraph = re.sub(r"\s+", " ", first_paragraph)
+        # # remove all quotation mark in first_paragraph
+        if removal_symbols:
+            first_tag = soup.find()
+            for symbol in removal_symbols:
+                for found_text in first_tag.find_all(text=re.compile(symbol)):
+                    empty_text = found_text.replace(symbol, "")
+                    found_text.replace_with(empty_text)
 
         # add stylesheet for drop cap
-        first_paragraph = "<p class=\"has-dropcap\">" + first_paragraph[3:]
-        content = first_paragraph + content[loc:]
+        first_tag = soup.find()
+        first_tag.name = "p"
+        first_tag["class"] = "has-dropcap"
+        content = soup.prettify()
+        content = re.sub(r"\n ", "", content)
+        content = re.sub(r"\n</", "</", content)
         return content.strip()
 
     def genHtmlFile(self, title: str, content: str, conf: dict):
@@ -351,7 +381,6 @@ class TLib(object):
         fill = kwargs.get("fill", "█")
 
         # calculate for bar display
-        i += 1
         percent = round(100 * i / n, decimals)
         filled_length = int(length * i // n)
         bar = fill * filled_length + "-" * (length-filled_length)
@@ -393,8 +422,6 @@ class TLib(object):
         # set default values
         metadata["language"] = metadata.get("language", "vi")
         metadata["publisher"] = metadata.get("publisher", "TLab")
-        if not metadata.get("source"):
-            metadata["source"] = "truyenfull.vn"
 
         # create book
         book = epub.EpubBook()
@@ -405,9 +432,10 @@ class TLib(object):
             book.set_title(metadata["title"])
         if metadata["author"]:
             book.add_author(metadata["author"])
-        if metadata["desc"]:
+        if metadata.get("desc"):
             book.add_metadata("DC", "description", metadata["desc"])
-        book.add_metadata("DC", "source", metadata["source"])
+        if metadata["source"]:
+            book.add_metadata("DC", "source", metadata["source"])
         book.add_metadata("DC", "publisher", metadata["publisher"])
         book.add_metadata("DC", "date", datetime.now().strftime("%Y-%m-%d"))
 
@@ -437,7 +465,7 @@ class TLib(object):
             filepath = os.path.join(output_dir, file)
             with open(filepath, "r", encoding="utf-8") as fp:
                 content = fp.read()
-            pattern = re.compile("<h2.*?>(.*)</h2>")
+            pattern = re.compile(r"<h2.*?>(.*)</h2>")
             title = pattern.search(content).group(1)
             # create chapter & add to book
             filename = "%s.xhtml" % os.path.splitext(file)[0]
