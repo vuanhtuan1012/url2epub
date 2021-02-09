@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 20:31:18
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-09 14:15:29
+# @Last Modified time: 2021-02-09 14:24:02
 
 SELECTORS = {
     "title": "title::text",
@@ -19,4 +19,4 @@ SELECTORS = {
 REMOVAL_PATTERNS = [r"dịch\s*:",  r"nhóm\s+dịch",
                     r"edit", r"beta"]
 
-REMOVAL_SYMBOLS = ["\"", "\'", r"\-", "“", "”"]
+REMOVAL_SYMBOLS = ["\"", "\'", "-", "“", "”"]
