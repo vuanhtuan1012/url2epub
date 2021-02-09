@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 20:37:00
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-09 16:02:52
+# @Last Modified time: 2021-02-09 18:56:51
 
 from U2eProcess import U2eProcess
 from spiders.TruyenFull import TruyenFull
@@ -13,10 +13,18 @@ from TLib import TLib
 
 
 def getSpider(url: str):
+    """Get spider from url
+
+    Args:
+        url (str): url to crawl
+
+    Returns:
+        TYPE: None if invalid url
+    """
     allowed_domains = VnThuQuan.allowed_domains + TruyenFull.allowed_domains
     error, msg = TLib().isValidUrl(url, allowed_domains)
     if error:
-        print(msg)
+        print("[ERROR] %s" % msg)
         return
 
     spiders = {k: VnThuQuan for k in VnThuQuan.allowed_domains}
@@ -26,7 +34,7 @@ def getSpider(url: str):
 
 
 def initialize():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser("crawl.py")
     parser.add_argument("url", type=str,
                         help="url to crawl")
     parser.add_argument("-d", "--debug", default=False,
