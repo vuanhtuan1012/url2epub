@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 21:00:44
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-09 13:15:15
+# @Last Modified time: 2021-02-09 17:36:39
 
 import logging
 from datetime import datetime
@@ -95,6 +95,9 @@ class TLib(object):
         logger = logging.getLogger(log_name)
         return logger
 
+    def getLogLevelName(self, log_level: int) -> str:
+        return logging.getLevelName(log_level)
+
     def cleanTags(self, content: str) -> str:
         """Clean tags in a text, except kept tags
 
@@ -118,9 +121,7 @@ class TLib(object):
         clean_text = " ".join(map(str, keep))
         # clean tag attributes
         for tag in self.KEPT_TAGS:
-            x = r"<%s +.*?>" % tag
-            y = r"<%s>" % tag
-            clean_text = re.sub(x, y, clean_text)
+            clean_text = re.sub(r"<%s +.*?>" % tag, r"<%s>" % tag, clean_text)
         # remove more than 2 spaces
         clean_text = re.sub(r"\s+", " ", clean_text)
         return clean_text.strip()

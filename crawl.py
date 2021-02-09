@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 20:37:00
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-09 14:21:51
+# @Last Modified time: 2021-02-09 16:02:52
 
 from U2eProcess import U2eProcess
 from spiders.TruyenFull import TruyenFull
@@ -29,31 +29,31 @@ def initialize():
     parser = argparse.ArgumentParser()
     parser.add_argument("url", type=str,
                         help="url to crawl")
-    parser.add_argument('-d', '--debug', default=False,
-                        action='store_const', const=True,
+    parser.add_argument("-d", "--debug", default=False,
+                        action="store_const", const=True,
                         help="enable debug mode",
                         required=False)
-    parser.add_argument('-l', '--log', default=True,
-                        action='store_const', const=False,
+    parser.add_argument("-l", "--log", default=True,
+                        action="store_const", const=False,
                         help="disable log mode",
                         required=False)
-    parser.add_argument('-o', '--output_dir', default="",
+    parser.add_argument("-o", "--output_dir", default="",
                         help="output directory",
                         required=False)
-    parser.add_argument('-c', '--cover', default="",
+    parser.add_argument("-c", "--cover", default="",
                         help="path to cover image",
                         required=False)
-    parser.add_argument('-p', '--publisher', default="",
+    parser.add_argument("-p", "--publisher", default="",
                         help="name of publisher",
                         required=False)
-    parser.add_argument('-e', '--end_chapter', default=0, type=int,
+    parser.add_argument("-e", "--end_chapter", default=0, type=int,
                         help="chapter index to finish crawl",
                         required=False)
     args = parser.parse_args()
     return args
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # get arguments
     args = initialize()
     url = args.url

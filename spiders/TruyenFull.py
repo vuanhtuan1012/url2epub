@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 20:18:19
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-09 13:15:34
+# @Last Modified time: 2021-02-09 18:15:25
 
 import scrapy
 from scrapy.spiders import CrawlSpider
@@ -77,27 +77,34 @@ class TruyenFull(CrawlSpider):
         """
         logger = self.ulogger
         tlib = self.tlib
-        logger.info("[%s] Crawl url: %s" % (logger.name, self.url))
-        logger.info("[%s] -- clean dir: %s" %
-                    (logger.name, self.crawl_conf["clean_dir"]))
+        logger.info("[%s] %s Crawl url: %s" %
+                    (logger.name, tlib.getLogLevelName(logger.level),
+                     self.url))
+        logger.info("[%s] %s -- clean dir: %s" %
+                    (logger.name, tlib.getLogLevelName(logger.level),
+                     self.crawl_conf["clean_dir"]))
 
         # clean output directory
         error, msg = tlib.cleanDir(self.output_dir,
                                    self.crawl_conf["clean_dir"])
         if error:
-            msg = "[ERROR]: %s" % msg
-            logger.error("[%s] %s" % (logger.name, msg))
+            logger.setLevel("ERROR")
+            logger.error("[%s] %s %s" %
+                         (logger.name,
+                          tlib.getLogLevelName(logger.level), msg))
             if logger.disabled:
-                print(msg)
+                print("[ERROR] %s" % msg)
             return
 
         # verify input url
         error, msg = tlib.isValidUrl(self.url, self.allowed_domains)
         if error:
-            msg = "[ERROR]: %s" % msg
-            logger.error("[%s] %s" % (logger.name, msg))
+            logger.setLevel("ERROR")
+            logger.error("[%s] %s %s" %
+                         (logger.name,
+                          tlib.getLogLevelName(logger.level), msg))
             if logger.disabled:
-                print(msg)
+                print("[ERROR] %s" % msg)
             return
 
         # put stylesheet file to output directory
@@ -129,10 +136,12 @@ class TruyenFull(CrawlSpider):
         if conf.get("cover"):
             epub_conf["cover"] = conf["cover"]
         self.epub_conf = epub_conf
-        logger.info("[%s] Getting story: %s" %
-                    (logger.name, epub_conf["title"]))
-        logger.info("[%s] -- author: %s" %
-                    (logger.name, epub_conf["author"]))
+        logger.info("[%s] %s Getting story: %s" %
+                    (logger.name, tlib.getLogLevelName(logger.level),
+                     epub_conf["title"]))
+        logger.info("[%s] %s -- author: %s" %
+                    (logger.name, tlib.getLogLevelName(logger.level),
+                     epub_conf["author"]))
 
         # set start, end chapter to crawl
         conf = self.crawl_conf
@@ -212,20 +221,26 @@ class TruyenFull(CrawlSpider):
             else conf["end_chapter"]
         self.crawl_conf = conf
         # show logs
-        logger.info("[%s] -- total chapters: %s" %
-                    (logger.name, conf["total_chapters"]))
+        logger.info("[%s] %s -- total chapters: %s" %
+                    (logger.name, tlib.getLogLevelName(logger.level),
+                     conf["total_chapters"]))
         if conf["start_chapter"] != 1:
-            logger.info("[%s] -- start chapter: %s" %
-                        (logger.name, conf["start_chapter"]))
+            logger.info("[%s] %s -- start chapter: %s" %
+                        (logger.name, tlib.getLogLevelName(logger.level),
+                         conf["start_chapter"]))
         if conf["end_chapter"] != conf["total_chapters"]:
-            logger.info("[%s] -- end chapter: %s" %
-                        (logger.name, conf["end_chapter"]))
+            logger.info("[%s] %s -- end chapter: %s" %
+                        (logger.name, tlib.getLogLevelName(logger.level),
+                         conf["end_chapter"]))
         # verification
         if conf["start_chapter"] > conf["end_chapter"]:
-            msg = "[ERROR] start chapter is greater than end chapter"
-            logger.error("[%s] %s" % (logger.name, msg))
+            msg = "Start chapter is greater than end chapter"
+            logger.setLevel("ERROR")
+            logger.error("[%s] %s %s" %
+                         (logger.name,
+                          tlib.getLogLevelName(logger.level), msg))
             if logger.disabled:
-                print(msg)
+                print("[ERROR] %s" % msg)
             return
         # create epub metadata file
         self.epub_conf["start_chapter"] = conf["start_chapter"]
@@ -292,8 +307,9 @@ class TruyenFull(CrawlSpider):
                 "language": self.epub_conf["language"]
             }
             tlib.genHtmlFile(title, content, html_conf)
-            logger.info("[%s] crawled chapter %s/%s: %s" %
-                        (logger.name, conf["current_chapter"],
+            logger.info("[%s] %s crawled chapter %s/%s: %s" %
+                        (logger.name, tlib.getLogLevelName(logger.level),
+                         conf["current_chapter"],
                          conf["end_chapter"], title))
             if logger.disabled and not self.debug:
                 tlib.printProgressBar(conf["current_chapter"]+1,
@@ -301,7 +317,7 @@ class TruyenFull(CrawlSpider):
                                       prefix="Crawling progress:")
         # crawl next chapter
         next_chapter_url = response.css(
-                           config.SELECTORS["next_chapter_urls"]).getall()[0]
+            config.SELECTORS["next_chapter_urls"]).getall()[0]
         continuable = not ("javascript" in next_chapter_url) and \
             (conf["current_chapter"] < conf["end_chapter"])
         if continuable:
@@ -311,18 +327,24 @@ class TruyenFull(CrawlSpider):
             # generate epub file
             error, epub_file = tlib.genEpubFile(self.output_dir)
             if error:
-                msg = "[ERROR] %s" % epub_file
-                logger.error("[%s] %s" % (logger.name, msg))
+                msg = epub_file
+                logger.setLevel("ERROR")
+                logger.error("[%s] %s %s" %
+                             (logger.name,
+                              tlib.getLogLevelName(logger.level), msg))
                 if logger.disabled:
-                    print(msg)
+                    print("[ERROR] %s" % msg)
                 return
 
             tlib.cleanDir(self.output_dir, conf["clean_dir"])
             end = time()
-            logger.info("[%s] Crawling duration: %s" %
-                        (logger.name, tlib.readSeconds(end - self.start)))
+            logger.info("[%s] %s Crawling duration: %s" %
+                        (logger.name, tlib.getLogLevelName(logger.level),
+                         tlib.readSeconds(end - self.start)))
             msg = "The story %s is saved at %s" % \
-                  (self.epub_conf["title"], epub_file)
-            logger.info("[%s] %s" % (logger.name, msg))
+                (self.epub_conf["title"], epub_file)
+            logger.info("[%s] %s %s" %
+                        (logger.name,
+                         tlib.getLogLevelName(logger.level), msg))
             if logger.disabled:
                 print(msg)
