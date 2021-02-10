@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 21:00:44
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-09 17:36:39
+# @Last Modified time: 2021-02-10 14:03:13
 
 import logging
 from datetime import datetime
@@ -122,9 +122,46 @@ class TLib(object):
         # clean tag attributes
         for tag in self.KEPT_TAGS:
             clean_text = re.sub(r"<%s +.*?>" % tag, r"<%s>" % tag, clean_text)
-        # remove more than 2 spaces
-        clean_text = re.sub(r"\s+", " ", clean_text)
+        clean_text = self.correctMisspacing(clean_text)
         return clean_text.strip()
+
+    def correctMisspacing(self, content: str) -> str:
+        """Correct mis-spacing in content
+
+        Args:
+            content (str): content to correct
+
+        Returns:
+            str: corrected content
+        """
+        # space
+        content = re.sub(r"\s+", " ", content)
+        # ,
+        content = re.sub(r",[\s|,]*,", ",", content)  # duplicate
+        content = re.sub(r"\s+,", ",", content)  # space before
+        content = re.sub(r",(\w)", ", \\1", content)  # no space after
+        # .
+        content = re.sub(r"\s+\.", ".", content)  # space before
+        content = re.sub(r"\.(\w)", ". \\1", content)  # no space after
+        # :
+        content = re.sub(r":[\s|:]*:", ":", content)  # duplicate
+        content = re.sub(r"\s+:", ":", content)  # space before
+        content = re.sub(r":([^\s])", ": \\1", content)  # no space after
+        # ?
+        content = re.sub(r"\?(\w)", "? \\1", content)  # no space after
+        # “
+        content = re.sub(r"(\w)“", "\\1 “", content)  # no space before
+        content = re.sub(r"“\s+", "“", content)  # space after
+        # ”
+        content = re.sub(r"\s+”", "”", content)  # space before
+        content = re.sub(r"”(\w)", "” \\1", content)  # no space after
+        # !
+        content = re.sub(r"!(\w)", "! \\1", content)  # no space after
+        # …
+        content = re.sub(r"…(\w)", "… \\1", content)  # no space after
+        # misspacing : ” xxx -> : ”xxx
+        content = re.sub(r":(\s)” ", ":\\1”", content)
+        return content
 
     def br2p(self, content: str) -> str:
         """Convert br tags in a text to p tags
@@ -273,8 +310,9 @@ class TLib(object):
             **kwargs (optional): keyword arguments
                 - title (str): title to remove redundant
                 - removal_patterns (list[str]): patterns to
-                                                remove unrelated text
-                - removal_symbols (str): patterns to remove quotation marks
+                    remove unrelated text
+                - removal_symbols (list[str]): patterns to remove
+                    quotation marks
 
         Returns:
             str: Description
