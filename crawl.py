@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 20:37:00
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-09 18:56:51
+# @Last Modified time: 2021-02-10 00:00:20
 
 from U2eProcess import U2eProcess
 from spiders.TruyenFull import TruyenFull
@@ -57,6 +57,9 @@ def initialize():
     parser.add_argument("-e", "--end_chapter", default=0, type=int,
                         help="chapter index to finish crawl",
                         required=False)
+    parser.add_argument("-s", "--start_chapter", default=1, type=int,
+                        help="chapter index to start crawl",
+                        required=False)
     args = parser.parse_args()
     return args
 
@@ -69,6 +72,7 @@ if __name__ == "__main__":
     cover = args.cover
     publisher = args.publisher
     end_chapter = args.end_chapter
+    start_chapter = args.start_chapter
     debug = args.debug
     disabled_log = not args.log
 
@@ -83,7 +87,7 @@ if __name__ == "__main__":
     }
     # configuration to crawl
     crawl_conf = {
-        # "start_chapter": 37,
+        "start_chapter": start_chapter,
         "end_chapter": end_chapter,
         # "end_chapter": 38,
         # "clean_dir": False
