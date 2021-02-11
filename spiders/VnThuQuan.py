@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-08 05:34:08
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-09 18:14:33
+# @Last Modified time: 2021-02-11 13:55:41
 
 import scrapy
 from scrapy.spiders import CrawlSpider
@@ -202,10 +202,8 @@ class VnThuQuan(CrawlSpider):
         # set epub metadata
         metadata = self.getMetadata(raw_metadata)
         chapter_info = metadata["chapter_info"]
-        title = chapter_info[0] if len(chapter_info) == 1 else chapter_info[1]
-        if len(chapter_info) > 2:
-            title = "%s: %s" % (title, " ".join(map(
-                str.title, chapter_info[2:])))
+        title, subtitle = self.getChapterTitle(chapter_info)
+
         if conf["current_chapter"] == conf["start_chapter"]:
             epub_conf = self.epub_conf
             epub_conf["title"] = epub_conf.get(
@@ -240,6 +238,8 @@ class VnThuQuan(CrawlSpider):
         content = self.cleanContent(raw_content)
         content = tlib.addDropCap(
             content, removal_symbols=config.REMOVAL_SYMBOLS)
+        if subtitle:
+            content = "<h4 class=\"subtitle\">%s</h4>\n" % subtitle + content
 
         # create a html file
         html_conf = {
@@ -306,6 +306,23 @@ class VnThuQuan(CrawlSpider):
                 "author": metadata[1],
                 "chapter_info": metadata[2:]}
 
+    def getChapterTitle(self, chapter_info: str) -> tuple:
+        """Get chapter title & sub title
+
+        Args:
+            chapter_info (str): Description
+
+        Returns:
+            tuple: title, subtitle
+        """
+        n = len(chapter_info)
+        if n == 1:
+            return chapter_info[0], None
+        elif n == 2:
+            return chapter_info[1], None
+        else:
+            return chapter_info[1], "\n".join(chapter_info[2:])
+
     def cleanContent(self, raw_content: str) -> str:
         """clean chapter content
 
@@ -317,10 +334,10 @@ class VnThuQuan(CrawlSpider):
         """
         tlib = self.tlib
         content = tlib.cleanTags(raw_content)
+        # prettify & remove empty tags
         soup = BeautifulSoup(content, features="lxml")
         soup.html.unwrap()
         soup.body.unwrap()
-        # remove empty tags
         for tag in soup.find_all():
             if len(tag.get_text(strip=True)) == 0:
                 tag.extract()
