@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 21:00:44
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-10 14:03:13
+# @Last Modified time: 2021-02-11 13:50:15
 
 import logging
 from datetime import datetime
@@ -14,7 +14,7 @@ import sys
 from time import sleep
 from ebooklib import epub
 import tpub
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 
 class TLib(object):
@@ -98,7 +98,7 @@ class TLib(object):
     def getLogLevelName(self, log_level: int) -> str:
         return logging.getLevelName(log_level)
 
-    def cleanTags(self, content: str) -> str:
+    def cleanTags(self, content: str, **kwargs) -> str:
         """Clean tags in a text, except kept tags
 
         Args:
@@ -107,18 +107,19 @@ class TLib(object):
         Returns:
             str: clean text
         """
-        soup = BeautifulSoup(content, features="lxml")
-        container = soup.find("body")
-        keep = list()
-        added = list()
-        for node in container.descendants:
-            if not node.name and len(node) and node not in added:
-                keep.append(node)
-            if node.name in self.KEPT_TAGS:
-                keep.append(node)
-                if len(node):
-                    added.append(node.text)
-        clean_text = " ".join(map(str, keep))
+        # remove tags except kept tags
+        close_tags = ["/" + tag for tag in self.KEPT_TAGS]
+        kept_tags_pattern = r"<(?!(?:{})).*?>".format(
+                            "|".join(self.KEPT_TAGS + close_tags))
+        clean_text = re.sub(kept_tags_pattern, r"", content,
+                            flags=re.IGNORECASE)
+        # correct br tags
+        clean_text = re.sub(r"<br.*?>", "<br/>", clean_text,
+                            flags=re.IGNORECASE)
+        # remove /br tags if it exists
+        clean_text = re.sub(r"</br>", r"", clean_text, flags=re.IGNORECASE)
+        # remove &nbsp;
+        clean_text = re.sub(r"&nbsp;", r" ", clean_text)
         # clean tag attributes
         for tag in self.KEPT_TAGS:
             clean_text = re.sub(r"<%s +.*?>" % tag, r"<%s>" % tag, clean_text)
@@ -143,6 +144,9 @@ class TLib(object):
         # .
         content = re.sub(r"\s+\.", ".", content)  # space before
         content = re.sub(r"\.(\w)", ". \\1", content)  # no space after
+        content = re.sub(r"\. (\w)",
+                         lambda match: ". %s" % match.group(1).upper(),
+                         content)  # no uppercase after
         # :
         content = re.sub(r":[\s|:]*:", ":", content)  # duplicate
         content = re.sub(r"\s+:", ":", content)  # space before
@@ -350,8 +354,11 @@ class TLib(object):
         if removal_symbols:
             first_tag = soup.find()
             for symbol in removal_symbols:
-                for found_text in first_tag.find_all(text=re.compile(symbol)):
-                    empty_text = found_text.replace(symbol, "")
+                matches = first_tag.find_all(text=re.compile(symbol,
+                                             re.IGNORECASE))
+                for found_text in matches:
+                    pattern = re.compile(re.escape(symbol), re.IGNORECASE)
+                    empty_text = pattern.sub("", str(found_text))
                     found_text.replace_with(empty_text)
 
         # add stylesheet for drop cap
@@ -359,8 +366,9 @@ class TLib(object):
         first_tag.name = "p"
         first_tag["class"] = "has-dropcap"
         content = soup.prettify()
-        content = re.sub(r"\n ", "", content)
+        content = re.sub(r"\n +", "", content)
         content = re.sub(r"\n</", "</", content)
+        content = re.sub(r"<p>\s+", "<p>", content)
         return content.strip()
 
     def genHtmlFile(self, title: str, content: str, conf: dict):
