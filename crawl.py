@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 20:37:00
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-10 00:00:20
+# @Last Modified time: 2021-02-11 13:37:04
 
 from U2eProcess import U2eProcess
 from spiders.TruyenFull import TruyenFull
@@ -89,7 +89,6 @@ if __name__ == "__main__":
     crawl_conf = {
         "start_chapter": start_chapter,
         "end_chapter": end_chapter,
-        # "end_chapter": 38,
         # "clean_dir": False
     }
 
