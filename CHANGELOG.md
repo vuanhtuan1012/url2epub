@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2021-02-11
+
+### Changed
+
+- [TLib](TLib.py):
+    - back to use manual code in methods `cleanTags`
+    
+- [spider truyenfull](spider/TruyenFull.py):
+    - add "ads" in removal symbols list
+
 ## 2021-02-09
 
 ### Changed
