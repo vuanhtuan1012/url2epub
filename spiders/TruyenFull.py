@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 20:18:19
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-09 18:15:25
+# @Last Modified time: 2021-02-11 13:37:58
 
 import scrapy
 from scrapy.spiders import CrawlSpider
@@ -290,12 +290,12 @@ class TruyenFull(CrawlSpider):
                               config.SELECTORS["chapter_content"]).getall())
             # remove html tags except kept tags
             content = tlib.cleanTags(content)
-            content = tlib.br2p(content)  # convert <br> to <p>
+            content = tlib.br2p(content)  # convert <br/> to <p>
             # add drop cap to first paragraph
             kwargs = {
                 "title": title,
                 "removal_patterns": config.REMOVAL_PATTERNS,
-                "removal_symbols": config.REMOVAL_SYMBOLS
+                "removal_symbols": ["ads"] + config.REMOVAL_SYMBOLS
             }
             content = tlib.addDropCap(content, **kwargs)
 
