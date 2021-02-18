@@ -7,8 +7,15 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - [TLib](TLib.py):
+    - capitalize the first paragraph of content in methods `addDropCap`
+
+## 2021-02-11
+
+### Changed
+
+- [TLib](TLib.py):
     - back to use manual code in methods `cleanTags`
-    
+
 - [spider truyenfull](spider/TruyenFull.py):
     - add "ads" in removal symbols list
 
