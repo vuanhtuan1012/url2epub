@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 21:00:44
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-11 13:50:15
+# @Last Modified time: 2021-02-18 13:55:10
 
 import logging
 from datetime import datetime
@@ -369,7 +369,14 @@ class TLib(object):
         content = re.sub(r"\n +", "", content)
         content = re.sub(r"\n</", "</", content)
         content = re.sub(r"<p>\s+", "<p>", content)
-        return content.strip()
+        # capitalize first paragraph
+        content = content.strip()
+        matches = re.search(r"<p\s+.*?>(.*?)<\/p>", content)
+        if matches:
+            start_idx, end_idx = matches.span(1)
+            content = content[:start_idx] + matches.group(1).capitalize()\
+                + content[end_idx:]
+        return content
 
     def genHtmlFile(self, title: str, content: str, conf: dict):
         """Write chapter to html file
