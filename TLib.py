@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 21:00:44
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-18 13:55:10
+# @Last Modified time: 2021-03-12 10:33:15
 
 import logging
 from datetime import datetime
@@ -81,18 +81,6 @@ class TLib(object):
                                               encoding="utf-8")
             fileHandler.setFormatter(formatter)
             logger.addHandler(fileHandler)
-        return logger
-
-    def getLogger(self, log_name: str) -> logging.Logger:
-        """Summary
-
-        Args:
-            log_name (str): name of logger to get
-
-        Returns:
-            logging.Logger: Description
-        """
-        logger = logging.getLogger(log_name)
         return logger
 
     def getLogLevelName(self, log_level: int) -> str:
@@ -371,7 +359,7 @@ class TLib(object):
         content = re.sub(r"<p>\s+", "<p>", content)
         # capitalize first paragraph
         content = content.strip()
-        matches = re.search(r"<p\s+.*?>(.*?)<\/p>", content)
+        matches = re.search(r"<p\s+.*?>(\w+)\s", content)
         if matches:
             start_idx, end_idx = matches.span(1)
             content = content[:start_idx] + matches.group(1).capitalize()\
@@ -592,3 +580,17 @@ class TLib(object):
             else:
                 res += "%s %s " % (v, unit)
         return res.strip()
+
+    def correctWords(self, content: str, corrections: list) -> str:
+        """Correct words in content
+
+        Args:
+            content (str): content to correct
+            corrections (list): list of triple (pattern, replacement, flag)
+
+        Returns:
+            str: corrected content
+        """
+        for pattern, repl, flag in corrections:
+            content = re.sub(re.escape(pattern), repl, content, flags=flag)
+        return content
