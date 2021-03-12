@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-08 05:34:08
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-11 13:55:41
+# @Last Modified time: 2021-03-12 11:20:16
 
 import scrapy
 from scrapy.spiders import CrawlSpider
@@ -19,7 +19,7 @@ class VnThuQuan(CrawlSpider):
     allowed_domains = ["vnthuquan.net"]
 
     def __init__(self, url: str, *args, **kwargs):
-        """Summary
+        """Initialize object
 
         Args:
             url (str): url of story
@@ -75,7 +75,7 @@ class VnThuQuan(CrawlSpider):
         """Verify url before parsing
 
         Yields:
-            TYPE: Description
+            def: parse
         """
         logger = self.ulogger
         tlib = self.tlib
@@ -117,33 +117,24 @@ class VnThuQuan(CrawlSpider):
         """Parse input url
 
         Args:
-            response (TYPE): scrapy http response
+            response (scrapy.http.response): html reponse
+
+        Yields:
+            def: parseChapter
         """
         logger = self.ulogger
         tlib = self.tlib
 
-        # set start, end chapter to crawl
-        chapters_func_calls = response.css(
-            config.SELECTORS["function_calls"]).getall()
+        # set start, limit chapter to crawl
         conf = self.crawl_conf
+        conf["limit"] = conf.get("limit", 0)
         if not conf.get("start_chapter"):
             conf["start_chapter"] = 1
+        chapters_func_calls = response.css(
+            config.SELECTORS["function_calls"]).getall()
         conf["total_chapters"] = len(chapters_func_calls)
-        conf["end_chapter"] = len(chapters_func_calls) \
-            if not conf.get("end_chapter") else conf["end_chapter"]
         conf["current_chapter"] = conf["start_chapter"]
         self.crawl_conf = conf
-
-        # verification
-        if conf["start_chapter"] > conf["end_chapter"]:
-            msg = "Start chapter is greater than end chapter"
-            logger.setLevel("ERROR")
-            logger.error("[%s] %s %s" %
-                         (logger.name, tlib.getLogLevelName(logger.level),
-                          msg))
-            if logger.disabled:
-                print("[ERROR] %s" % msg)
-            return
 
         form_data = self.functionCall2Kwargs(
             chapters_func_calls[conf["current_chapter"]-1])
@@ -169,7 +160,7 @@ class VnThuQuan(CrawlSpider):
         return kwargs
 
     def fetchRequest(self, form_data: dict) -> scrapy.FormRequest:
-        """fetch a request to crawl chapter
+        """Fetch a request to crawl chapter
 
         Args:
             form_data (dict): chapter data to fetch
@@ -188,10 +179,10 @@ class VnThuQuan(CrawlSpider):
         """Parse a chapter
 
         Args:
-            response (TYPE): scrapy http response
+            response (scrapy.http.response): html reponse
 
-        Returns:
-            TYPE: Description
+        Yields:
+            def: parseChapter
         """
         tlib = self.tlib
         logger = self.ulogger
@@ -229,10 +220,10 @@ class VnThuQuan(CrawlSpider):
                 logger.info("[%s] %s -- start chapter: %s" %
                             (logger.name, tlib.getLogLevelName(logger.level),
                              conf["start_chapter"]))
-            if conf["end_chapter"] != conf["total_chapters"]:
-                logger.info("[%s] %s -- end chapter: %s" %
+            if conf["limit"]:
+                logger.info("[%s] %s -- limit: %s" %
                             (logger.name, tlib.getLogLevelName(logger.level),
-                             conf["end_chapter"]))
+                             conf["limit"]))
 
         # get content
         content = self.cleanContent(raw_content)
@@ -249,17 +240,24 @@ class VnThuQuan(CrawlSpider):
             "language": self.epub_conf["language"]
         }
         tlib.genHtmlFile(title, content, html_conf)
+
+        # show log
+        end_chapter = conf["total_chapters"] if not conf["limit"] \
+            else conf["start_chapter"] + conf["limit"] - 1
+        if end_chapter > conf["total_chapters"]:
+            end_chapter = conf["total_chapters"]
         logger.info("[%s] %s crawled chapter %s/%s: %s" %
                     (logger.name, tlib.getLogLevelName(logger.level),
                      conf["current_chapter"],
-                     conf["end_chapter"], title))
+                     end_chapter, title))
         if logger.disabled and not self.debug:
             tlib.printProgressBar(conf["current_chapter"],
-                                  conf["end_chapter"],
+                                  end_chapter,
                                   prefix="Crawling progress:")
 
         # crawl next chapter
-        if conf["current_chapter"] < conf["end_chapter"]:
+        continuable = conf["current_chapter"] < end_chapter
+        if continuable:
             conf["current_chapter"] += 1
             self.form_data["chuongid"] = str(conf["current_chapter"])
             self.crawl_conf = conf
@@ -291,13 +289,13 @@ class VnThuQuan(CrawlSpider):
                 print(msg)
 
     def getMetadata(self, raw_metadata: str) -> dict:
-        """get clean metadata of chapter
+        """Get clean metadata of chapter
 
         Args:
             raw_metadata (str): raw metadata
 
         Returns:
-            dict: Description
+            dict: title, author, chapter_info
         """
         tlib = self.tlib
         clean_data = tlib.removeTags(raw_metadata)
@@ -324,7 +322,7 @@ class VnThuQuan(CrawlSpider):
             return chapter_info[1], "\n".join(chapter_info[2:])
 
     def cleanContent(self, raw_content: str) -> str:
-        """clean chapter content
+        """Clean chapter content
 
         Args:
             raw_content (str): raw content

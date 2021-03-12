@@ -2,11 +2,12 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 20:37:00
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-11 13:37:04
+# @Last Modified time: 2021-03-12 09:26:29
 
 from U2eProcess import U2eProcess
 from spiders.TruyenFull import TruyenFull
 from spiders.VnThuQuan import VnThuQuan
+from spiders.TruyenKK import TruyenKK
 import argparse
 from urllib.parse import urlparse
 from TLib import TLib
@@ -21,7 +22,8 @@ def getSpider(url: str):
     Returns:
         TYPE: None if invalid url
     """
-    allowed_domains = VnThuQuan.allowed_domains + TruyenFull.allowed_domains
+    allowed_domains = VnThuQuan.allowed_domains + TruyenFull.allowed_domains\
+        + TruyenKK.allowed_domains
     error, msg = TLib().isValidUrl(url, allowed_domains)
     if error:
         print("[ERROR] %s" % msg)
@@ -29,11 +31,17 @@ def getSpider(url: str):
 
     spiders = {k: VnThuQuan for k in VnThuQuan.allowed_domains}
     spiders.update({k: TruyenFull for k in TruyenFull.allowed_domains})
+    spiders.update({k: TruyenKK for k in TruyenKK.allowed_domains})
     domain = urlparse(url).netloc
     return spiders[domain]
 
 
-def initialize():
+def initialize() -> argparse.Namespace:
+    """Get arguments from command line
+
+    Returns:
+        argparse.Namespace: got arguments
+    """
     parser = argparse.ArgumentParser("crawl.py")
     parser.add_argument("url", type=str,
                         help="url to crawl")
@@ -54,11 +62,11 @@ def initialize():
     parser.add_argument("-p", "--publisher", default="",
                         help="name of publisher",
                         required=False)
-    parser.add_argument("-e", "--end_chapter", default=0, type=int,
-                        help="chapter index to finish crawl",
-                        required=False)
-    parser.add_argument("-s", "--start_chapter", default=1, type=int,
+    parser.add_argument("-s", "--start", default=1, type=int,
                         help="chapter index to start crawl",
+                        required=False)
+    parser.add_argument("-i", "--limit", default=0, type=int,
+                        help="total chapters to crawl",
                         required=False)
     args = parser.parse_args()
     return args
@@ -71,8 +79,8 @@ if __name__ == "__main__":
     output_dir = args.output_dir
     cover = args.cover
     publisher = args.publisher
-    end_chapter = args.end_chapter
-    start_chapter = args.start_chapter
+    start_chapter = args.start
+    limit = args.limit
     debug = args.debug
     disabled_log = not args.log
 
@@ -88,7 +96,7 @@ if __name__ == "__main__":
     # configuration to crawl
     crawl_conf = {
         "start_chapter": start_chapter,
-        "end_chapter": end_chapter,
+        "limit": limit,
         # "clean_dir": False
     }
 

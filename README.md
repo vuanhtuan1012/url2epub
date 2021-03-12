@@ -9,7 +9,7 @@ Supported sites:
 ## Usage
 
 ```
-python crawl.py [-h] [-d] [-l] [-o OUTPUT_DIR] [-c COVER] [-p PUBLISHER] [-e END_CHAPTER] url
+python crawl.py [-h] [-d] [-l] [-o OUTPUT_DIR] [-c COVER] [-p PUBLISHER] [-s START] [-i LIMIT] url
 ```
 
 - `-h`: display help
@@ -18,7 +18,8 @@ python crawl.py [-h] [-d] [-l] [-o OUTPUT_DIR] [-c COVER] [-p PUBLISHER] [-e END
 - `-o`: path to output directory. Default: `url2epub` inside current directory
 - `-c`: path to the cover of story. Default: empty string
 - `-p`: the name of the publisher of story. Default: empty string
-- `-e`: chapter index to finish crawl. Default: crawl all chapters
+- `-s`: chapter index to start crawl. Default: crawl from the first chapter
+- `-i`: limit total chapters to crawl. Default: 0 - no limit
 - `url`: the url of story
 
 ## Cover

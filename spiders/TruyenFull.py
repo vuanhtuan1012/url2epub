@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 20:18:19
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-02-11 13:37:58
+# @Last Modified time: 2021-03-12 11:09:55
 
 import scrapy
 from scrapy.spiders import CrawlSpider
@@ -18,7 +18,7 @@ class TruyenFull(CrawlSpider):
     allowed_domains = ["truyenfull.vn"]
 
     def __init__(self, url: str, *args, **kwargs):
-        """Summary
+        """Initialize object
 
         Args:
             url (str): url of story
@@ -73,7 +73,7 @@ class TruyenFull(CrawlSpider):
         """Verify url before parsing
 
         Yields:
-            TYPE: Description
+            def: parse
         """
         logger = self.ulogger
         tlib = self.tlib
@@ -115,7 +115,10 @@ class TruyenFull(CrawlSpider):
         """Parse input url
 
         Args:
-            response (TYPE): scrapy http response
+            response (scrapy.http.response): html reponse
+
+        Yields:
+            def: getTotalChapters
         """
         logger = self.ulogger
         tlib = self.tlib
@@ -143,8 +146,9 @@ class TruyenFull(CrawlSpider):
                     (logger.name, tlib.getLogLevelName(logger.level),
                      epub_conf["author"]))
 
-        # set start, end chapter to crawl
+        # set start, limit chapter to crawl
         conf = self.crawl_conf
+        conf["limit"] = conf.get("limit", 0)
         if not conf.get("start_chapter"):
             conf["start_chapter"] = 1
         chapter_urls = response.css(config.SELECTORS["chapter_urls"]).getall()
@@ -166,7 +170,7 @@ class TruyenFull(CrawlSpider):
         """Get metadata of a story
 
         Args:
-            response (TYPE): scrapy http response
+            response (scrapy.http.response): html reponse
 
         Returns:
             dict: metadata obtained
@@ -204,6 +208,14 @@ class TruyenFull(CrawlSpider):
         return int(re.findall(r"\d+", url)[-1])
 
     def getTotalChapters(self, response):
+        """Get total chapters
+
+        Args:
+            response (scrapy.http.response): html reponse
+
+        Yields:
+            def: parseChapter
+        """
         tlib = self.tlib
         conf = self.crawl_conf
         logger = self.ulogger
@@ -217,9 +229,8 @@ class TruyenFull(CrawlSpider):
                 + len(chapter_urls)
             conf["total_chapters"] = total_chapters
         conf["current_chapter"] = 0
-        conf["end_chapter"] = total_chapters if not conf.get("end_chapter") \
-            else conf["end_chapter"]
         self.crawl_conf = conf
+
         # show logs
         logger.info("[%s] %s -- total chapters: %s" %
                     (logger.name, tlib.getLogLevelName(logger.level),
@@ -228,23 +239,14 @@ class TruyenFull(CrawlSpider):
             logger.info("[%s] %s -- start chapter: %s" %
                         (logger.name, tlib.getLogLevelName(logger.level),
                          conf["start_chapter"]))
-        if conf["end_chapter"] != conf["total_chapters"]:
-            logger.info("[%s] %s -- end chapter: %s" %
+        if conf["limit"]:
+            logger.info("[%s] %s -- limit: %s" %
                         (logger.name, tlib.getLogLevelName(logger.level),
-                         conf["end_chapter"]))
-        # verification
-        if conf["start_chapter"] > conf["end_chapter"]:
-            msg = "Start chapter is greater than end chapter"
-            logger.setLevel("ERROR")
-            logger.error("[%s] %s %s" %
-                         (logger.name,
-                          tlib.getLogLevelName(logger.level), msg))
-            if logger.disabled:
-                print("[ERROR] %s" % msg)
-            return
+                         conf["limit"]))
+
         # create epub metadata file
         self.epub_conf["start_chapter"] = conf["start_chapter"]
-        self.epub_conf["end_chapter"] = conf["end_chapter"]
+        self.epub_conf["limit"] = conf["limit"]
         tlib.metadata2json(self.epub_conf, self.output_dir)
         # parse chapters
         chapter_url = self.getChapterUrl(conf["start_chapter"]) \
@@ -270,10 +272,10 @@ class TruyenFull(CrawlSpider):
         """Crawl a chapter to html file
 
         Args:
-            response (TYPE): scrapy http response
+            response (scrapy.http.response): html reponse
 
         Yields:
-            TYPE: Description
+            def: parseChapter
         """
         tlib = self.tlib
         logger = self.ulogger
@@ -288,16 +290,20 @@ class TruyenFull(CrawlSpider):
             # get content
             content = "".join(response.css(
                               config.SELECTORS["chapter_content"]).getall())
+
             # remove html tags except kept tags
             content = tlib.cleanTags(content)
             content = tlib.br2p(content)  # convert <br/> to <p>
+
             # add drop cap to first paragraph
             kwargs = {
                 "title": title,
                 "removal_patterns": config.REMOVAL_PATTERNS,
-                "removal_symbols": ["ads"] + config.REMOVAL_SYMBOLS
+                "removal_symbols": config.REMOVAL_SYMBOLS
             }
             content = tlib.addDropCap(content, **kwargs)
+            if hasattr(config, "CORRECTIONS") and config.CORRECTIONS:
+                content = tlib.correctWords(content, config.CORRECTIONS)
 
             # create a html file
             html_conf = {
@@ -307,19 +313,27 @@ class TruyenFull(CrawlSpider):
                 "language": self.epub_conf["language"]
             }
             tlib.genHtmlFile(title, content, html_conf)
+
+            # show log
+            end_chapter = conf["total_chapters"] if not conf["limit"] \
+                else conf["start_chapter"] + conf["limit"] - 1
+            if end_chapter > conf["total_chapters"]:
+                end_chapter = conf["total_chapters"]
             logger.info("[%s] %s crawled chapter %s/%s: %s" %
                         (logger.name, tlib.getLogLevelName(logger.level),
                          conf["current_chapter"],
-                         conf["end_chapter"], title))
+                         end_chapter, title))
             if logger.disabled and not self.debug:
                 tlib.printProgressBar(conf["current_chapter"]+1,
-                                      conf["end_chapter"],
+                                      end_chapter,
                                       prefix="Crawling progress:")
         # crawl next chapter
+        continuable = True if not conf["limit"] \
+            else (conf["current_chapter"] <
+                  conf["start_chapter"] + conf["limit"] - 1)
         next_chapter_url = response.css(
             config.SELECTORS["next_chapter_urls"]).getall()[0]
-        continuable = not ("javascript" in next_chapter_url) and \
-            (conf["current_chapter"] < conf["end_chapter"])
+        continuable = continuable and not ("javascript" in next_chapter_url)
         if continuable:
             yield scrapy.Request(next_chapter_url,
                                  callback=self.parseChapter)
