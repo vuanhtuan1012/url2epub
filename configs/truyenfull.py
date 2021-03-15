@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 20:31:18
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-03-12 11:10:51
+# @Last Modified time: 2021-03-14 19:46:05
 
 SELECTORS = {
     "title": "title::text",
@@ -19,7 +19,7 @@ SELECTORS = {
 REMOVAL_PATTERNS = [r"dịch.*?:",  r"nhóm\s+dịch",
                     r"edit", r"beta", r"biên\s+lại", r"biên\s+soạn"]
 
-REMOVAL_SYMBOLS = ["\"", "\'", "-", "“", "”", "…", ".", "ads"]
+REMOVAL_SYMBOLS = ["\"", "\'", "-", "“", "”", "…", ".", "ads", "–"]
 
 # triple of (pattern, repl, flag)
 # flag = 2 for case insensitive
