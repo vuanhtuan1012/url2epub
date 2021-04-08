@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 21:00:44
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-04-08 17:22:31
+# @Last Modified time: 2021-04-08 19:43:25
 
 import logging
 from datetime import datetime
@@ -112,6 +112,11 @@ class TLib(object):
         for tag in self.KEPT_TAGS:
             clean_text = re.sub(r"<%s +.*?>" % tag, r"<%s>" % tag, clean_text)
         clean_text = self.correctMisspacing(clean_text)
+        # trim <br/>, <p></p>
+        clean_text = re.sub(r"(<br/>)+<p>", r"<p>", clean_text,
+                            flags=re.IGNORECASE)
+        clean_text = re.sub(r"<p></p>", r"", clean_text,
+                            flags=re.IGNORECASE)
         return clean_text.strip()
 
     def correctMisspacing(self, content: str) -> str:
@@ -164,13 +169,8 @@ class TLib(object):
         Returns:
             str: converted text
         """
-        # trim <br/>, <p></p>
-        converted_text = re.sub(r"(<br/>)+<p>", r"<p>", content,
-                                flags=re.IGNORECASE)
-        converted_text = re.sub(r"<p></p>", r"", converted_text,
-                                flags=re.IGNORECASE)
         # remove multiple <br/>
-        converted_text = re.sub(r"(<br/>)+", r"<br/>", converted_text,
+        converted_text = re.sub(r"(<br/>)+", r"<br/>", content,
                                 flags=re.IGNORECASE)
         # converted_text <br/> to <p>
         converted_text = re.sub(r"<br/>", r"</p>\n<p>", converted_text,
