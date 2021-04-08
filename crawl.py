@@ -2,7 +2,7 @@
 # @Author: anh-tuan.vu
 # @Date:   2021-02-04 20:37:00
 # @Last Modified by:   anh-tuan.vu
-# @Last Modified time: 2021-03-12 09:26:29
+# @Last Modified time: 2021-04-08 16:49:20
 
 from U2eProcess import U2eProcess
 from spiders.TruyenFull import TruyenFull
